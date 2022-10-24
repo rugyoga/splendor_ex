@@ -26,7 +26,12 @@ defmodule Splendor.Game do
     end
 
     def reserve_a_card({hand, game}) do
-        if game.chips.gold
+        if Enum.count(hand.reserved) == 3 do
+            []
+        else
+            Enum.map(game.cards, &{:grab, &1})
+        end
+    end
 
     def grab_chips(state) do
         grab_two_chips(state) ++ grab_three_chips(state)

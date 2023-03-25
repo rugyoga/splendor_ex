@@ -3,14 +3,22 @@ defmodule Splendor.Card do
 
     @colours ~w(black blue green red white)a
     @type colour :: :black | :blue | :green | :red | :white
-    @type prequisites :: %{ colour => integer }
+    @type prequisites :: %{ colour => integer() }
     defstruct level: 0, colour: nil, points: 0, required: %{black: 0, blue: 0, green: 0, red: 0, white: 0}
 
+    @type t :: %__MODULE__{
+        level: non_neg_integer(),
+        colour: colour(),
+        points: non_neg_integer(),
+        required: prequisites()}
+
+    @spec colours() :: list(colour())
     def colours, do: @colours
-    
+
+    @spec deck() :: list(t())
     def deck do
-        "deck.csv" 
-        |> File.stream!() 
+        "deck.csv"
+        |> File.stream!()
         |> CSV.decode!(headers: true)
         |> Enum.map(fn csv -> csv |> Map.to_list |> Enum.map(&map_element/1) |> Map.new end)
         |> Enum.map(fn csv ->

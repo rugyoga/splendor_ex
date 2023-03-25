@@ -2,7 +2,7 @@ defmodule Splendor.Game do
     alias Splendor.{Card,Game,Hand}
 
     defstruct turn: 0,
-        chips: %{black: 7, blue: 7, gold: 5, green: 7, red: 7, white: 7}, 
+        chips: %{black: 7, blue: 7, gold: 5, green: 7, red: 7, white: 7},
         cards: Splendor.Card.deck(),
         moves: []
 
@@ -33,13 +33,27 @@ defmodule Splendor.Game do
         end
     end
 
-    def grab_chips(state) do
-        grab_two_chips(state) ++ grab_three_chips(state)
-        |> Enum.flat_map(&discard_to_10/1)
+    def grab_chips({_hand, game} = state) do
+        grab_two_chips(game.chips) ++ grab_three_chips(game.chips)
+        |> Enum.flat_map(&discard_to_10(state, &1))
     end
 
-    def discard_to_10(x) do
-        x
+    def discard_to_10({hand, _game}, {:grab, chips} = move) do
+        chips = Hand.grab(hand, chips)
+        if chips.count <= 10 do
+            [move]
+        else
+            discard(chips, chips.count - 10, [])
+            |> List.flatten
+            |> Enum.map(&{:multi, move, &1})
+        end
+    end
+
+    def discard(_chips, 0, discards), do: {:discard, discards}
+    def discard(chips, discard, discards) do
+        chips
+        |> Enum.filter(fn {_colour, n} -> n > 0 end)
+        |> Enum.map(fn {colour, n} -> discard(chips |> Map.update(colour, &(&1 - 1)), discard-1, [colour | discards]) end)
     end
 
     @doc """
@@ -52,10 +66,10 @@ defmodule Splendor.Game do
 
         iex> Game.grab_two_chips(%{black: 4, blue: 4, green: 4, red: 4, white: 4})
         [{:grab, %{black: 2}},
-        {:grab, %{blue: 2}},
-        {:grab, %{green: 2}},
-        {:grab, %{red: 2}},
-        {:grab, %{white: 2}}]
+         {:grab, %{blue: 2}},
+         {:grab, %{green: 2}},
+         {:grab, %{red: 2}},
+         {:grab, %{white: 2}}]
     """
     def grab_two_chips(chips) do
         Card.colours
@@ -64,17 +78,34 @@ defmodule Splendor.Game do
     end
 
     @doc """
-    Generate all wasys to grab three chips from the available supply
+    Generate all ways to grab three chips from the available supply
 
     ## Examples
 
         iex> Game.grab_three_chips(%{black: 1, blue: 1, green: 1, red: 0, white: 0})
         [{:grab, %{black: 1, blue: 1, green: 1}}]
+
+        iex> Game.grab_three_chips(%{black: 1, blue: 1, green: 1, red: 1, white: 0})
+        [{:grab, %{black: 1, blue: 1, green: 1}},
+        {:grab, %{black: 1, blue: 1, red: 1}},
+        {:grab, %{black: 1, green: 1, red: 1}},
+        {:grab, %{blue: 1, green: 1, red: 1}}]
+
+        iex> Game.grab_three_chips(%{black: 1, blue: 1, green: 1, red: 1, white: 1})
+        [{:grab, %{black: 1, blue: 1, green: 1}},
+        {:grab, %{black: 1, blue: 1, red: 1}},
+        {:grab, %{black: 1, blue: 1, white: 1}},
+        {:grab, %{black: 1, green: 1, red: 1}},
+        {:grab, %{black: 1, green: 1, white: 1}},
+        {:grab, %{black: 1, red: 1, white: 1}},
+        {:grab, %{blue: 1, green: 1, red: 1}},
+        {:grab, %{blue: 1, green: 1, white: 1}},
+        {:grab, %{blue: 1, red: 1, white: 1}},
+        {:grab, %{green: 1, red: 1, white: 1}}]
     """
     def grab_three_chips(chips) do
         Card.colours
         |> Enum.filter(&(Map.get(chips, &1) > 0))
-        |> IO.inspect(label: "after_filter")
         |> pick(3)
         |> Enum.map(fn colours -> {:grab, Enum.map(colours, &{&1, 1}) |> Map.new} end)
     end
@@ -90,10 +121,10 @@ defmodule Splendor.Game do
 
         iex> Game.pick([:a,:b,:c,:d], 3)
         [[:a,:b,:c], [:a,:b,:d], [:a,:c,:d], [:b,:c,:d]]
-        
+
         iex> Game.pick([:a,:b,:c,:d], 4)
         [[:a,:b,:c, :d]]
-                
+
         iex> Game.pick([:a,:b,:c,:d], 5)
         [[:a,:b,:c, :d]]
     """

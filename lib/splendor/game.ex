@@ -1,60 +1,159 @@
 defmodule Splendor.Game do
-    alias Splendor.{Card,Game,Hand}
+    @moduledoc """
+    Represents a Splendor game state
+    """
+
+    alias Splendor.{Card, Game, Hand, T}
 
     defstruct turn: 0,
         chips: %{black: 7, blue: 7, gold: 5, green: 7, red: 7, white: 7},
         cards: Splendor.Card.deck(),
         moves: []
 
-    def choices(_game, hand) when hand.points >= 15, do: [{:finished, hand}]
+    @type t :: %__MODULE__{
+        chips: T.chips(),
+        cards: T.cards(),
+        moves: T.moves()
+    }
+
+    def choices({hand, _game}) when hand.points >= 15, do: [{:finished, hand}]
     #def choices
 
-    def search() do
-        PriorityQueue.new |> push(start())
+    #@spec search() :: PriorityQueue.t()
+    def search do
+        PriorityQueue.new() |> push(start())
     end
 
+    @spec push(PriorityQueue.t(), T.state()) :: PriorityQueue.t()
     def push(pq, state), do: PriorityQueue.push(pq, state, score(state))
 
+    @spec start() :: T.state()
     def start, do: {%Hand{}, %Game{}}
 
+    @spec score(T.state()) :: integer()
     def score({hand, game}), do: - (100 * game.turn + 10 * hand.points + hand.chips.count)
 
-    def moves({_hand, _game}) do
-        #grab chips
-        #reserve a card
-        #buy a card
+    @spec moves(T.state()) :: T.moves()
+    def moves(state) do
+        grab_chips(state) ++ reserve_a_card(state) ++ buy_a_card(state)
     end
 
+    @spec reserve_a_card(T.state()) :: list(T.reserve())
     def reserve_a_card({hand, game}) do
         if Enum.count(hand.reserved) == 3 do
             []
         else
-            Enum.map(game.cards, &{:grab, &1})
+            Enum.map(game.cards, &{:reserve, &1})
         end
     end
 
+    @spec buy_a_card(T.state()) :: T.moves()
+    def buy_a_card({hand, game}) do
+        game.cards
+        |> Enum.filter(&Card.buyable?(&1, hand.chips))
+        |> Enum.map(&{:buy, &1})
+    end
+
+    @spec grab_chips(T.state()) :: T.moves()
     def grab_chips({_hand, game} = state) do
-        grab_two_chips(game.chips) ++ grab_three_chips(game.chips)
+        grab_two_chips(game.chips)
+        |> Kernel.++(grab_three_chips(game.chips))
         |> Enum.flat_map(&discard_to_10(state, &1))
     end
 
+    @spec discard_to_10(T.state(), T.grab()) :: T.moves()
     def discard_to_10({hand, _game}, {:grab, chips} = move) do
-        chips = Hand.grab(hand, chips)
-        if chips.count <= 10 do
-            [move]
-        else
-            discard(chips, chips.count - 10, [])
-            |> List.flatten
+        hand = Hand.grab(hand, chips)
+        if hand.chips.count > 10 do
+            hand.chips
+            |> Map.delete(:count)
+            |> discard(hand.chips.count - 10)
             |> Enum.map(&{:multi, move, &1})
+        else
+            [move]
         end
     end
 
-    def discard(_chips, 0, discards), do: {:discard, discards}
+    @spec discard(T.chips(), integer(), T.colours()) :: list()
+    def discard(_chips, 0, discards), do: [{:discard, Enum.frequencies(discards)}]
     def discard(chips, discard, discards) do
         chips
         |> Enum.filter(fn {_colour, n} -> n > 0 end)
-        |> Enum.map(fn {colour, n} -> discard(chips |> Map.update(colour, &(&1 - 1)), discard-1, [colour | discards]) end)
+        |> Enum.map(fn {colour, _} -> discard(Map.update!(chips, colour, &(&1 - 1)), discard - 1, [colour | discards]) end)
     end
+
+    @doc """
+    Discard n chips
+
+    ## Examples
+
+        iex> Game.discard(%{black: 0, blue: 0, green: 0, red: 0, white: 0}, 0)
+        []
+
+        iex> Game.discard(%{black: 1, blue: 0, green: 0, red: 0, white: 0}, 1)
+        [{:discard, %{black: 1}}]
+
+        iex> Game.discard(%{black: 1, blue: 1, green: 1, red: 1, white: 1}, 1)
+        [{:discard, %{black: 1}},
+         {:discard, %{blue: 1}},
+         {:discard, %{green: 1}},
+         {:discard, %{red: 1}},
+         {:discard, %{white: 1}}]
+
+        iex> Game.discard(%{black: 1, blue: 1, green: 1, red: 1, white: 1}, 2)
+        [{:discard, %{black: 1, blue: 1}},
+         {:discard, %{black: 1, green: 1}},
+         {:discard, %{black: 1, red: 1}},
+         {:discard, %{black: 1, white: 1}},
+         {:discard, %{blue: 1, green: 1}},
+         {:discard, %{blue: 1, red: 1}},
+         {:discard, %{blue: 1, white: 1}},
+         {:discard, %{green: 1, red: 1}},
+         {:discard, %{green: 1, white: 1}},
+         {:discard, %{red: 1, white: 1}}]
+
+        iex> Game.discard(%{black: 1, blue: 1, green: 1, red: 1, white: 1}, 3)
+        [{:discard, %{black: 1, blue: 1, green: 1}},
+         {:discard, %{black: 1, blue: 1, red: 1}},
+         {:discard, %{black: 1, blue: 1, white: 1}},
+         {:discard, %{black: 1, green: 1, red: 1}},
+         {:discard, %{black: 1, green: 1, white: 1}},
+         {:discard, %{black: 1, red: 1, white: 1}},
+         {:discard, %{blue: 1, green: 1, red: 1}},
+         {:discard, %{blue: 1, green: 1, white: 1}},
+         {:discard, %{blue: 1, red: 1, white: 1}},
+         {:discard, %{green: 1, red: 1, white: 1}}]
+
+        iex> Game.discard(%{black: 1, blue: 1, green: 1, red: 1, white: 1}, 4)
+        [{:discard, %{black: 1, blue: 1, green: 1, red: 1}},
+         {:discard, %{black: 1, blue: 1, green: 1, white: 1}},
+         {:discard, %{black: 1, blue: 1, red: 1, white: 1}},
+         {:discard, %{black: 1, green: 1, red: 1, white: 1}},
+         {:discard, %{blue: 1, green: 1, red: 1, white: 1}}]
+
+        iex> Game.discard(%{black: 1, blue: 1, green: 1, red: 1, white: 1}, 5)
+        [{:discard, %{black: 1, blue: 1, green: 1, red: 1, white: 1}}]
+
+        iex> Game.discard(%{black: 2, blue: 2, green: 2}, 2)
+        [{:discard, %{black: 2}},
+         {:discard, %{black: 1, blue: 1}},
+         {:discard, %{black: 1, green: 1}},
+         {:discard, %{blue: 2}},
+         {:discard, %{blue: 1, green: 1}},
+         {:discard, %{green: 2}}]
+
+        iex> Game.discard(%{black: 2, blue: 2, green: 2}, 3)
+        [{:discard, %{black: 2, blue: 1}},
+         {:discard, %{black: 2, green: 1}},
+         {:discard, %{black: 1, blue: 2}},
+         {:discard, %{black: 1, blue: 1, green: 1}},
+         {:discard, %{black: 1, green: 2}},
+         {:discard, %{blue: 2, green: 1}},
+         {:discard, %{blue: 1, green: 2}}]
+    """
+    @spec discard(T.chips(), integer()) :: T.moves()
+    def discard(_, 0), do: []
+    def discard(chips, n), do: chips |> discard(n, []) |> List.flatten |> Enum.uniq()
 
     @doc """
     Find all the grab two chip moves
@@ -71,6 +170,7 @@ defmodule Splendor.Game do
          {:grab, %{red: 2}},
          {:grab, %{white: 2}}]
     """
+    @spec grab_two_chips(T.chips()) :: T.moves()
     def grab_two_chips(chips) do
         Card.colours
         |> Enum.filter(&(Map.get(chips, &1) >= 4))
@@ -103,16 +203,17 @@ defmodule Splendor.Game do
         {:grab, %{blue: 1, red: 1, white: 1}},
         {:grab, %{green: 1, red: 1, white: 1}}]
     """
+    @spec grab_three_chips(T.chips()) :: T.moves()
     def grab_three_chips(chips) do
         Card.colours
         |> Enum.filter(&(Map.get(chips, &1) > 0))
         |> pick(3)
-        |> Enum.map(fn colours -> {:grab, Enum.map(colours, &{&1, 1}) |> Map.new} end)
+        |> Enum.map(fn colours -> {:grab, colours |> Enum.map(&{&1, 1}) |> Map.new} end)
     end
 
     def pick(_, 0, so_far), do: [{Enum.reverse(so_far)}]
     def pick([], _, _), do: []
-    def pick([item | items], n, so_far), do: [pick(items, n-1, [item|so_far]), pick(items, n, so_far)]
+    def pick([item | items], n, so_far), do: [pick(items, n - 1, [item | so_far]), pick(items, n, so_far)]
 
     @doc """
     Find all the different way to pick n distinct coins from items
@@ -128,6 +229,7 @@ defmodule Splendor.Game do
         iex> Game.pick([:a,:b,:c,:d], 5)
         [[:a,:b,:c, :d]]
     """
+    @spec pick([t()], integer()) :: [t()] when t: var
     def pick(items, n) do
         if Enum.count(items) <= n do
             [items]

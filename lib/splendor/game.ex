@@ -16,28 +16,51 @@ defmodule Splendor.Game do
         moves: T.moves()
     }
 
-    def choices({hand, _game}) when hand.points >= 15, do: [{:finished, hand}]
-    #def choices
+    @max_hand_size 10
+    @solitaire true
 
-    #@spec search() :: PriorityQueue.t()
-    def search do
-        PriorityQueue.new() |> push(start())
-    end
-
-    @spec push(PriorityQueue.t(), T.state()) :: PriorityQueue.t()
-    def push(pq, state), do: PriorityQueue.push(pq, state, score(state))
+    # @spec push(PriorityQueue.t(), T.state()) :: PriorityQueue.t()
+    # def push(pq, state), do: PriorityQueue.push(pq, state, score(state))
 
     @spec start() :: T.state()
     def start, do: {%Hand{}, %Game{}}
 
-    @spec score(T.state()) :: integer()
-    def score({hand, game}), do: - (100 * game.turn + 10 * hand.points + hand.chips.count)
+    # @spec score(T.state()) :: integer()
+    # def score({hand, game}), do: - (100 * game.turn + 10 * hand.points + hand.chips.count)
 
-    @spec moves(T.state()) :: T.moves()
-    def moves(state) do
-        grab_chips(state) ++ reserve_a_card(state) ++ buy_a_card(state)
-    end
+    @doc """
+    Generate moves for solitaire version
 
+    ## Examples
+
+        iex> Game.start() |> Game.moves_solitaire() |> length()
+        15
+
+    """
+    @spec moves_solitaire(T.state()) :: T.moves()
+    def moves_solitaire(state), do: grab_chips(state) ++ buy_a_card(state)
+
+    @doc """
+    Generate moves for solitaire version
+
+    ## Examples
+
+        iex> Game.start() |> Game.moves_regular() |> length()
+        105
+
+    """
+    @spec moves_regular(T.state()) :: T.moves()
+    def moves_regular(state), do: moves_solitaire(state) ++ reserve_a_card(state)
+
+    @doc """
+    Reserve card
+
+    ## Examples
+
+        iex> Game.reserve_a_card(Game.start())
+        Card.deck() |> Enum.map(&{:reserve, &1})
+
+    """
     @spec reserve_a_card(T.state()) :: list(T.reserve())
     def reserve_a_card({hand, game}) do
         if Enum.count(hand.reserved) == 3 do
@@ -47,6 +70,34 @@ defmodule Splendor.Game do
         end
     end
 
+    @doc """
+    Reserve card
+
+    ## Examples
+
+        iex> Game.buy_a_card(Game.start())
+        []
+
+        iex> Game.buy_a_card({%Hand{chips: %{black: 0, blue: 1, green: 1, red: 1, white: 1, gold: 0, count: 4}}, %Game{}})
+        [{:buy, %Splendor.Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}}]
+
+        iex> Game.buy_a_card({%Hand{chips: %{black: 1, blue: 1, green: 1, red: 1, white: 1, gold: 1, count: 6}}, %Game{}})
+        [{:buy, %Splendor.Card{colour: :black, level: 1, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 2, green: 1, red: 1, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 0, green: 2, red: 1, white: 0}}},
+        {:buy, %Splendor.Card{level: 1, colour: :blue, points: 0, required: %{black: 1, blue: 0, green: 1, red: 1, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :blue, points: 0, required: %{black: 1, blue: 0, green: 1, red: 2, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :blue, points: 0, required: %{black: 2, blue: 0, green: 0, red: 0, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :white, points: 0, required: %{black: 1, blue: 1, green: 1, red: 1, white: 0}}},
+        {:buy, %Splendor.Card{level: 1, colour: :white, points: 0, required: %{black: 1, blue: 1, green: 2, red: 1, white: 0}}},
+        {:buy, %Splendor.Card{level: 1, colour: :white, points: 0, required: %{black: 1, blue: 0, green: 0, red: 2, white: 0}}},
+        {:buy, %Splendor.Card{level: 1, colour: :green, points: 0, required: %{black: 1, blue: 1, green: 0, red: 1, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :green, points: 0, required: %{black: 2, blue: 1, green: 0, red: 1, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :green, points: 0, required: %{black: 0, blue: 1, green: 0, red: 0, white: 2}}},
+        {:buy, %Splendor.Card{level: 1, colour: :red, points: 0, required: %{black: 1, blue: 1, green: 1, red: 0, white: 1}}},
+        {:buy, %Splendor.Card{level: 1, colour: :red, points: 0, required: %{black: 1, blue: 1, green: 1, red: 0, white: 2}}},
+        {:buy, %Splendor.Card{level: 1, colour: :red, points: 0, required: %{black: 0, blue: 2, green: 1, red: 0, white: 0}}}]
+    """
     @spec buy_a_card(T.state()) :: T.moves()
     def buy_a_card({hand, game}) do
         game.cards
@@ -54,17 +105,55 @@ defmodule Splendor.Game do
         |> Enum.map(&{:buy, &1})
     end
 
+
+    @doc """
+    Grab chips chips
+
+    ## Examples
+
+        iex> Game.grab_chips(Game.start())
+        [{:grab, %{black: 2}},
+        {:grab, %{blue: 2}},
+        {:grab, %{green: 2}},
+        {:grab, %{red: 2}},
+        {:grab, %{white: 2}},
+        {:grab, %{black: 1, blue: 1, green: 1}},
+        {:grab, %{black: 1, blue: 1, red: 1}},
+        {:grab, %{black: 1, blue: 1, white: 1}},
+        {:grab, %{black: 1, green: 1, red: 1}},
+        {:grab, %{black: 1, green: 1, white: 1}},
+        {:grab, %{black: 1, red: 1, white: 1}},
+        {:grab, %{blue: 1, green: 1, red: 1}},
+        {:grab, %{blue: 1, green: 1, white: 1}},
+        {:grab, %{blue: 1, red: 1, white: 1}},
+        {:grab, %{green: 1, red: 1, white: 1}}]
+
+    """
     @spec grab_chips(T.state()) :: T.moves()
     def grab_chips({_hand, game} = state) do
         grab_two_chips(game.chips)
         |> Kernel.++(grab_three_chips(game.chips))
-        |> Enum.flat_map(&discard_to_10(state, &1))
+        |> Enum.flat_map(&discard_to_n(state, &1, 10))
     end
 
-    @spec discard_to_10(T.state(), T.grab()) :: T.moves()
-    def discard_to_10({hand, _game}, {:grab, chips} = move) do
+    @doc """
+    Discard n chips
+
+    ## Examples
+
+        iex> Game.discard_to_n({%Hand{}, %Game{}}, {:grab, %{black: 1, blue: 1, green: 1}}, 2)
+        []
+
+        iex> Game.discard_to_n({%Hand{}, %Game{}}, {:grab, %{black: 1, blue: 1, green: 1}}, 3)
+        [{:grab, %{black: 1, blue: 1, green: 1}}]
+
+        iex> Game.discard_to_n({%Hand{chips: %{black: 2, blue: 2, green: 2, red: 2, white: 2, gold: 0, count: 10}}, %Game{}}, {:grab, %{black: 1, blue: 1, green: 1}}) |> length()
+        33
+    """
+    @spec discard_to_n(T.state(), T.grab(), integer()) :: T.moves()
+    def discard_to_n({hand, _game}, {:grab, chips} = move, n \\ @max_hand_size) do
         hand = Hand.grab(hand, chips)
-        if hand.chips.count > 10 do
+        if hand.chips.count > n do
             hand.chips
             |> Map.delete(:count)
             |> discard(hand.chips.count - 10)
@@ -74,6 +163,17 @@ defmodule Splendor.Game do
         end
     end
 
+    @doc """
+    Discard n chips
+
+    ## Examples
+
+        iex> Game.discard(%{black: 0, blue: 0, green: 0, red: 0, white: 0}, 0, [])
+        [{:discard, %{}}]
+
+        iex> Game.discard(%{black: 1, blue: 0, green: 0, red: 0, white: 0}, 1, [])
+        [[discard: %{black: 1}]]
+    """
     @spec discard(T.chips(), integer(), T.colours()) :: list()
     def discard(_chips, 0, discards), do: [{:discard, Enum.frequencies(discards)}]
     def discard(chips, discard, discards) do

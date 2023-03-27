@@ -15,9 +15,28 @@ defmodule Splendor.Card do
         points: integer(),
         required: T.chips()}
 
+    @doc """
+    Colours
+
+    ## Examples
+
+        iex> Card.colours()
+        [:black, :blue, :green, :red, :white]
+    """
     @spec colours() :: list(T.colour())
     def colours, do: @colours
 
+    @doc """
+    Deck pulled from CSV
+
+    ## Examples
+
+        iex> Card.deck() |> length()
+        90
+
+        iex> Card.deck() |> List.first()
+        %Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}
+    """
     @spec deck() :: list(t())
     def deck do
         "deck.csv"
@@ -34,9 +53,23 @@ defmodule Splendor.Card do
             end)
     end
 
+    @doc """
+    Can we buy this card?
+
+    ## Examples
+
+        iex> Card.buyable?(%Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}, %{black: 0, blue: 1, green: 1, red: 1, white: 1, gold: 0})
+        true
+
+        iex> Card.buyable?(%Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}, %{black: 0, blue: 1, green: 1, red: 1, white: 0, gold: 0})
+        false
+
+        iex> Card.buyable?(%Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}, %{black: 0, blue: 1, green: 1, red: 1, white: 0, gold: 1})
+        true
+    """
     @spec buyable?(t(), T.chips()) :: boolean()
     def buyable?(card, chips) do
-        calculate_deficit = fn {colour, count}, deficit -> deficit + Enum.max([0, count - chips[colour]]) end
+        calculate_deficit = fn {colour, count}, deficit -> deficit + Enum.max([0, count - Map.get(chips, colour, 0)]) end
         Enum.reduce(card.required, 0, calculate_deficit) <= chips.gold
     end
 

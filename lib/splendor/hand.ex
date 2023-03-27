@@ -16,6 +16,14 @@ defmodule Splendor.Hand do
         reserved: T.cards()
     }
 
+    @doc """
+    Reserve card
+
+    ## Examples
+
+        iex> Hand.reserve(%Hand{chips: %{black: 0, blue: 1, green: 1, red: 1, white: 1, gold: 0, count: 4}}, %Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}})
+        %Hand{points: 0, chips: %{black: 0, blue: 1, green: 1, red: 1, white: 1, gold: 1, count: 5}, bought: [], reserved: [%Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}]}
+    """
     @spec reserve(t(), Card.t()) :: t()
     def reserve(hand, card) do
         %Hand{hand |
@@ -24,6 +32,14 @@ defmodule Splendor.Hand do
         }
     end
 
+    @doc """
+    Buy card
+
+    ## Examples
+
+        iex> Hand.buy(%Hand{chips: %{black: 0, blue: 1, green: 1, red: 1, white: 1, gold: 0, count: 4}}, %Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}})
+        %Hand{points: 0, chips: %{black: 0, blue: 0, gold: 0, green: 0, red: 0, white: 0, count: 0}, bought: [%Card{level: 1, colour: :black, points: 0, required: %{black: 0, blue: 1, green: 1, red: 1, white: 1}}], reserved: []}
+    """
     @spec buy(t(), Card.t()) :: t()
     def buy(hand, card) do
         %Hand{hand |
@@ -33,6 +49,14 @@ defmodule Splendor.Hand do
         }
     end
 
+    @doc """
+    Grab chips
+
+    ## Examples
+
+        iex> Hand.grab(%Hand{}, %{blue: 1})
+        %Hand{points: 0, chips: %{black: 0, blue: 1, gold: 0, green: 0, red: 0, white: 0, count: 1}, bought: [], reserved: []}
+    """
     @spec grab(t(), T.chips()) :: t()
     def grab(hand, chips), do: %Hand{hand | chips: update(hand.chips, chips)}
 

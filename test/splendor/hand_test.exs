@@ -1,7 +1,6 @@
 defmodule Splendor.HandTest do
-    alias Splendor.Hand
+  alias Splendor.{Card, Hand}
 
-    use ExUnit.Case
-    doctest Hand
-  end
-  
+  use ExUnit.Case
+  doctest Hand
+end

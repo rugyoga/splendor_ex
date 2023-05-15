@@ -13,10 +13,10 @@ defmodule Splendor.T do
   @type chips_with_count :: %{(colours() | :count) => integer()}
   @type discard :: {:discard, colours()}
   @type grab :: {:grab, chips()}
-  @type move :: discard() | grab() | multi() | reserve() | buy()
+  @type move :: buy() | discard() | grab() | multi() | reserve()
   @type moves :: list(move())
   @type multi :: {:multi, move(), move()}
   @type op :: (integer(), integer() -> integer())
   @type reserve :: {:reserve, Card.t()}
-  @type state :: {Hand.t(), Game.t()}
+  @type game_state :: {Game.t(), Hand.t()}
 end

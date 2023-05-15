@@ -61,6 +61,17 @@ defmodule Splendor.Hand do
     def grab(hand, chips), do: %Hand{hand | chips: update(hand.chips, chips)}
 
     @doc """
+    Discard chips
+
+    ## Examples
+
+        iex> Hand.discard(%Hand{points: 0, chips: %{black: 0, blue: 1, gold: 0, green: 0, red: 0, white: 0, count: 1}, bought: [], reserved: []}, %{blue: 1})
+        %Hand{points: 0, chips: %{black: 0, blue: 0, gold: 0, green: 0, red: 0, white: 0, count: 0}, bought: [], reserved: []}
+    """
+    @spec discard(t(), T.chips()) :: t()
+    def discard(hand, chips), do: %Hand{hand | chips: update(hand.chips, chips, &Kernel.-/2)}
+
+    @doc """
     Change the chips by delta (inc count)
 
     ## Examples
@@ -73,7 +84,6 @@ defmodule Splendor.Hand do
         delta
         |> Enum.reduce(chips, fn {colour, points}, chips -> change(chips, colour, op, points) end)
     end
-
 
     @spec change(T.chips_with_count(), T.colour(), T.op()) :: T.chips_with_count()
     def change(chips, colour, op \\ &Kernel.+/2, n \\ 1) do
